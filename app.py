@@ -1,12 +1,8 @@
 import os
 import openai
-from flask import Flask, request, jsonify
 
-# Initialize Flask app
-app = Flask(__name__)
-
-# Load OpenAI API Key from environment variables
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Make sure the API key is retrieved from environment variables
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 if not OPENAI_API_KEY:
     raise ValueError("Error: OPENAI_API_KEY is missing. Check your Heroku config vars.")
