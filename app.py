@@ -1,40 +1,43 @@
-import os
 from flask import Flask, request, jsonify
 import openai
-
-# Load OpenAI API key from environment variable
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-if not OPENAI_API_KEY:
-    raise ValueError("Missing OpenAI API Key. Set the 'OPENAI_API_KEY' environment variable.")
-
-# Initialize OpenAI client
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+import os
 
 app = Flask(__name__)
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({"message": "Marketo OpenAI Webhook is running!"})
+# Load OpenAI API Key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        data = request.json
-        prompt = data.get("prompt", "")
+        print("Received request headers:", request.headers)  # Debugging: Show headers
+        print("Received request body:", request.data.decode("utf-8"))  # Debugging: Show raw body
 
-        if not prompt:
+        # Ensure request is JSON
+        if not request.is_json:
+            return jsonify({"error": "415 Unsupported Media Type: Request must be JSON"}), 415
+
+        data = request.get_json()
+
+        # Debugging: Log parsed JSON data
+        print("Parsed JSON data:", data)
+
+        # Check if 'prompt' exists
+        if "prompt" not in data:
             return jsonify({"error": "Missing prompt"}), 400
 
+        # Generate OpenAI response
         response = client.completions.create(
             model="gpt-4",
-            prompt=prompt,
+            prompt=data["prompt"],
             max_tokens=100
         )
 
-        return jsonify(response)
-    
+        return jsonify({"response": response.choices[0].text.strip()})
+
     except Exception as e:
+        print("Error occurred:", str(e))  # Debugging: Log error
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
