@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify
 # Initialize Flask App
 app = Flask(__name__)
 
-# OpenAI API Key (Ensure it's set in Heroku config vars)
+# OpenAI API Key (Make sure it's set in Heroku config vars)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route("/")
@@ -35,11 +35,11 @@ def marketo_webhook():
         - Brief analysis on whether they are a good fit for a B2B SaaS product.
         """
 
-        # Correct OpenAI v1.0+ usage
-        client = openai.OpenAI()
+        # ✅ Correct OpenAI v1.0+ usage
+        client = openai.OpenAI()  # Initialize client
         response = client.chat.completions.create(
             model="gpt-4-turbo",
-            messages=[{"role": "system", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}]
         )
 
         # Extract GPT response
