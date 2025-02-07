@@ -1,11 +1,18 @@
 import os
 import openai
+import json
 from flask import Flask, request, jsonify
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# Ensure OpenAI API Key is set in Heroku config vars
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Fetch OpenAI API key from environment variable
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("Missing OpenAI API Key. Set it in your environment variables.")
+
+# Initialize OpenAI client
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route("/", methods=["GET"])
 def home():
@@ -13,50 +20,50 @@ def home():
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
-    data = request.json
-    
-    first_name = data.get("First Name", "")
-    last_name = data.get("Last Name", "")
-    company_name = data.get("Company Name", "")
-    email = data.get("Email Address", "")
-
-    # Constructing the prompt
-    prompt = f"""
-    Given the following lead information:
-
-    - Name: {first_name} {last_name}
-    - Company: {company_name}
-    - Email: {email}
-
-    Please determine:
-    1. Industry
-    2. Company Size
-    3. Revenue Estimate
-    4. A short paragraph on whether this company is a good fit.
-
-    Respond in **JSON format** with fields:
-    - GPT_Industry
-    - GPT_Company_Size
-    - GPT_Revenue
-    - GPT_Company_Info
-    """
-
     try:
-        response = openai.chat.completions.create(
-            model="gpt-4-turbo",
-            messages=[
-                {"role": "system", "content": "You are a B2B business analyst."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7
+        # Parse incoming JSON data
+        data = request.get_json()
+        first_name = data.get("First Name", "")
+        last_name = data.get("Last Name", "")
+        company_name = data.get("Company Name", "")
+        email = data.get("Email Address", "")
+
+        if not company_name:
+            return jsonify({"error": "Company Name is required"}), 400
+
+        # OpenAI Prompt for GPT enrichment
+        prompt = f"""
+        Given the following person:
+        - Name: {first_name} {last_name}
+        - Email: {email}
+        - Company: {company_name}
+
+        Please provide:
+        1. The industry this company operates in.
+        2. The estimated company size (small, medium, or large).
+        3. Estimated annual revenue.
+        4. A brief description assessing whether this company is a good fit for B2B SaaS solutions.
+        """
+
+        # Call OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}]
         )
 
-        gpt_output = response.choices[0].message.content
+        # Extract GPT response
+        gpt_response = response.choices[0].message.content.strip()
 
-        return jsonify({"success": True, "GPT_Response": gpt_output})
+        return jsonify({
+            "GPT Industry": gpt_response.split("\n")[0],
+            "GPT Company Size": gpt_response.split("\n")[1],
+            "GPT Revenue": gpt_response.split("\n")[2],
+            "GPT Company Info": gpt_response.split("\n")[3]
+        })
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)})
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
