@@ -6,13 +6,15 @@ app = Flask(__name__)
 
 # Load OpenAI API Key
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY  # Use openai.api_key instead of client object
+
+client = openai.OpenAI(api_key=OPENAI_API_KEY)  # Use new OpenAI client
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        print("Received request headers:", request.headers)  # Debugging: Show headers
-        print("Received request body:", request.data.decode("utf-8"))  # Debugging: Show raw body
+        # Debugging: Show incoming request
+        print("Received request headers:", request.headers)
+        print("Received request body:", request.data.decode("utf-8"))
 
         # Ensure request is JSON
         if not request.is_json:
@@ -27,9 +29,9 @@ def marketo_webhook():
         if "prompt" not in data:
             return jsonify({"error": "Missing prompt"}), 400
 
-        # ✅ Use the correct OpenAI endpoint `/v1/chat/completions`
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Ensure you're using a chat-based model
+        # ✅ Use the new OpenAI client for v1.0+
+        response = client.chat.completions.create(
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": data["prompt"]}
@@ -37,7 +39,7 @@ def marketo_webhook():
             max_tokens=100
         )
 
-        return jsonify({"response": response["choices"][0]["message"]["content"].strip()})
+        return jsonify({"response": response.choices[0].message.content.strip()})
 
     except Exception as e:
         print("Error occurred:", str(e))  # Debugging: Log error
