@@ -1,54 +1,51 @@
 import os
-import openai
+import json
 from flask import Flask, request, jsonify
+import openai
 
+# Initialize Flask app
 app = Flask(__name__)
 
-# OpenAI API Key from Heroku config
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Ensure OpenAI API key is set
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+if not OPENAI_API_KEY:
+    raise ValueError("Missing OpenAI API key!")
+
+# Create OpenAI client
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Marketo Webhook is Running!"
+    return "Marketo OpenAI Webhook is running!", 200
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        data = request.json
+        data = request.get_json()
 
-        first_name = data.get("First Name", "")
+        # Extract user input from Marketo webhook payload
+        first_name = data.get("First Name", "User")
         last_name = data.get("Last Name", "")
-        company_name = data.get("Company Name", "")
+        company = data.get("Company Name", "Unknown Company")
         email = data.get("Email Address", "")
 
-        if not company_name:
-            return jsonify({"error": "Missing Company Name"}), 400
-
-        prompt = f"""
-        Given the following company details:
-        - Name: {company_name}
-        - Person: {first_name} {last_name}
-        - Email: {email}
-
-        Please provide:
-        - Industry
-        - Estimated Company Size
-        - Estimated Revenue
-        - A short description of whether this company is a good fit.
-        """
-
-        response = openai.ChatCompletion.create(
-            model="gpt-4-turbo",
-            messages=[{"role": "system", "content": "You are an expert in business insights and B2B sales."},
-                      {"role": "user", "content": prompt}]
+        # Generate a response from OpenAI
+        prompt = f"Generate a professional follow-up email for {first_name} {last_name} from {company}."
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful AI assistant."},
+                {"role": "user", "content": prompt}
+            ]
         )
 
-        result = response["choices"][0]["message"]["content"]
+        # Extract AI-generated text
+        ai_response = response.choices[0].message.content
 
-        return jsonify({"GPT Response": result})
+        return jsonify({"success": True, "message": ai_response}), 200
 
     except Exception as e:
-        return jsonify({"error": str(e), "success": False}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
