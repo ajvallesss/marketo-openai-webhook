@@ -28,31 +28,29 @@ def marketo_webhook():
 
         # Create a prompt for GPT-4 to enrich company data
         prompt = f"""
-        Based on the company name "{company_name}", provide the following information:
-        - Industry
-        - Estimated Company Size
-        - Estimated Revenue
-        - Brief paragraph evaluating if they are a good fit for a B2B SaaS product.
-
-        Use public knowledge, educated estimates, and business logic.
+        Provide insights for the company "{company_name}":
+        1. Industry:
+        2. Estimated Company Size:
+        3. Estimated Revenue:
+        4. Brief analysis on whether they are a good fit for a B2B SaaS product.
         """
 
-        # Call OpenAI API
-        client = openai.OpenAI()  # Using OpenAI v1.0+ syntax
+        # Call OpenAI API (Updated for v1.0+)
+        client = openai.OpenAI()
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4-turbo",
             messages=[{"role": "system", "content": prompt}]
         )
 
         # Extract GPT response
-        gpt_output = response.choices[0].message.content.strip()
+        gpt_output = response.choices[0].message.content.strip().split("\n")
 
         # Format response
         result = {
-            "GPT Industry": gpt_output.split("\n")[0] if len(gpt_output.split("\n")) > 0 else "",
-            "GPT Company Size": gpt_output.split("\n")[1] if len(gpt_output.split("\n")) > 1 else "",
-            "GPT Revenue": gpt_output.split("\n")[2] if len(gpt_output.split("\n")) > 2 else "",
-            "GPT Company Info": "\n".join(gpt_output.split("\n")[3:]) if len(gpt_output.split("\n")) > 3 else ""
+            "GPT Industry": gpt_output[0].replace("1. Industry:", "").strip() if len(gpt_output) > 0 else "",
+            "GPT Company Size": gpt_output[1].replace("2. Estimated Company Size:", "").strip() if len(gpt_output) > 1 else "",
+            "GPT Revenue": gpt_output[2].replace("3. Estimated Revenue:", "").strip() if len(gpt_output) > 2 else "",
+            "GPT Company Info": "\n".join(gpt_output[3:]).replace("4. Brief analysis on whether they are a good fit for a B2B SaaS product:", "").strip() if len(gpt_output) > 3 else ""
         }
 
         return jsonify(result)
