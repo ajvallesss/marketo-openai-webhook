@@ -1,1 +1,5 @@
-echo "venv/\n__pycache__/\n*.pyc\n.DS_Store\n.env" > .gitignore
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
