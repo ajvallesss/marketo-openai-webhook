@@ -1,15 +1,9 @@
-import os
-import json
-from flask import Flask, request, jsonify
 import openai
+import os
 
-# Load OpenAI API Key from Heroku environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-if not OPENAI_API_KEY:
-    raise ValueError("Missing OpenAI API key!")
 
-# Initialize OpenAI client with the latest format
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+client = openai.OpenAI(api_key=OPENAI_API_KEY)  # REMOVE any `proxies` argument
 
 # Flask app setup
 app = Flask(__name__)
