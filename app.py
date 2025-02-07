@@ -1,8 +1,14 @@
 from flask import Flask, request, jsonify
-import openai
-import os
 
 app = Flask(__name__)
+
+@app.route('/marketo-webhook', methods=['POST'])
+def marketo_webhook():
+    data = request.get_json()
+    return jsonify({"message": "Webhook received!", "data": data})
+
+if __name__ == '__main__':
+    app.run(debug=True)
 
 # OpenAI API Key (Heroku will store this securely)
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
