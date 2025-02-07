@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Set OpenAI API Key (Ensure this is set in Heroku Config Vars)
+# Ensure OpenAI API Key is set in Heroku config vars
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route("/", methods=["GET"])
@@ -20,7 +20,7 @@ def marketo_webhook():
     company_name = data.get("Company Name", "")
     email = data.get("Email Address", "")
 
-    # Prompt for OpenAI API
+    # Constructing the prompt
     prompt = f"""
     Given the following lead information:
 
@@ -34,7 +34,7 @@ def marketo_webhook():
     3. Revenue Estimate
     4. A short paragraph on whether this company is a good fit.
 
-    Respond in JSON format with fields:
+    Respond in **JSON format** with fields:
     - GPT_Industry
     - GPT_Company_Size
     - GPT_Revenue
@@ -42,14 +42,16 @@ def marketo_webhook():
     """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4-turbo",
-            messages=[{"role": "system", "content": "You are a B2B business analyst."},
-                      {"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are a B2B business analyst."},
+                {"role": "user", "content": prompt}
+            ],
             temperature=0.7
         )
 
-        gpt_output = response["choices"][0]["message"]["content"]
+        gpt_output = response.choices[0].message.content
 
         return jsonify({"success": True, "GPT_Response": gpt_output})
 
