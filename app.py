@@ -1,12 +1,17 @@
-import openai
 import os
+import openai
+from flask import Flask, request, jsonify
 
+# Initialize Flask app
+app = Flask(__name__)
+
+# Load OpenAI API Key from environment variables
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)  # REMOVE any `proxies` argument
+if not OPENAI_API_KEY:
+    raise ValueError("Error: OPENAI_API_KEY is missing. Check your Heroku config vars.")
 
-# Flask app setup
-app = Flask(__name__)
+client = openai.OpenAI(api_key=OPENAI_API_KEY)  # Ensure no 'proxies=' argument
 
 @app.route("/", methods=["GET"])
 def home():
@@ -15,28 +20,17 @@ def home():
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        data = request.get_json()
-
-        # Extract user input
-        first_name = data.get("First Name", "User")
-        last_name = data.get("Last Name", "")
-        company = data.get("Company Name", "Unknown Company")
-        email = data.get("Email Address", "")
-
-        # OpenAI API call
-        prompt = f"Generate a professional follow-up email for {first_name} {last_name} from {company}."
-        response = client.chat.completions.create(
+        data = request.json
+        prompt = data.get("prompt", "Tell me something interesting about AI.")
+        
+        response = client.completions.create(
             model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful AI assistant."},
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}]
         )
-
-        return jsonify({"success": True, "message": response.choices[0].message.content}), 200
-
+        
+        return jsonify({"response": response.choices[0].message["content"]})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
