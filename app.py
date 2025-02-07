@@ -1,72 +1,66 @@
 import os
-import json
 import openai
 from flask import Flask, request, jsonify
 
+# Initialize Flask App
 app = Flask(__name__)
 
-# OpenAI API Key from Heroku environment variable
+# OpenAI API Key (Make sure it's set in Heroku config vars)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-@app.route("/", methods=["GET"])
+@app.route("/")
 def home():
     return "Marketo Webhook is Running!"
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        # Receive Lead Data from Marketo
-        data = request.json
-        first_name = data.get("firstName", "Unknown")
-        last_name = data.get("lastName", "Unknown")
-        company = data.get("company", "Unknown Company")
-        email = data.get("email", "Unknown Email")
+        # Get JSON payload from Marketo webhook
+        data = request.get_json()
+        
+        first_name = data.get("First Name", "")
+        last_name = data.get("Last Name", "")
+        company_name = data.get("Company Name", "")
+        email = data.get("Email Address", "")
 
-        # GPT Prompt for Enrichment
+        if not company_name or not email:
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Create a prompt for GPT-4 to enrich company data
         prompt = f"""
-        Given the following lead details:
-        - First Name: {first_name}
-        - Last Name: {last_name}
-        - Company: {company}
-        - Email: {email}
+        Based on the company name "{company_name}", provide the following information:
+        - Industry
+        - Estimated Company Size
+        - Estimated Revenue
+        - Brief paragraph evaluating if they are a good fit for a B2B SaaS product.
 
-        Based on publicly available business intelligence, estimate:
-        1. **Industry** (e.g., SaaS, Finance, Healthcare)
-        2. **Company Size** (e.g., 1-10 employees, 11-50 employees)
-        3. **Revenue Range** (e.g., $10M-$50M, $50M-$100M)
-        4. **Company Fit Analysis**: A paragraph assessing if this company is a good fit for enterprise B2B software solutions.
-
-        Respond **strictly in JSON format** with the following keys:
-        - industry
-        - company_size
-        - revenue
-        - company_fit
+        Use public knowledge, educated estimates, and business logic.
         """
 
-        # Call OpenAI GPT
-        response = openai.ChatCompletion.create(
+        # Call OpenAI API
+        client = openai.OpenAI()  # Using OpenAI v1.0+ syntax
+        response = client.chat.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are an AI business analyst with expertise in lead enrichment."},
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "system", "content": prompt}]
         )
 
-        # Extract GPT Response
-        gpt_response = response["choices"][0]["message"]["content"]
-        enriched_data = json.loads(gpt_response)
+        # Extract GPT response
+        gpt_output = response.choices[0].message.content.strip()
 
-        # Return Data to Marketo
-        return jsonify({
-            "success": True,
-            "GPT_Industry": enriched_data.get("industry"),
-            "GPT_Company_Size": enriched_data.get("company_size"),
-            "GPT_Revenue": enriched_data.get("revenue"),
-            "GPT_Company_Info": enriched_data.get("company_fit")
-        })
+        # Format response
+        result = {
+            "GPT Industry": gpt_output.split("\n")[0] if len(gpt_output.split("\n")) > 0 else "",
+            "GPT Company Size": gpt_output.split("\n")[1] if len(gpt_output.split("\n")) > 1 else "",
+            "GPT Revenue": gpt_output.split("\n")[2] if len(gpt_output.split("\n")) > 2 else "",
+            "GPT Company Info": "\n".join(gpt_output.split("\n")[3:]) if len(gpt_output.split("\n")) > 3 else ""
+        }
+
+        return jsonify(result)
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"error": str(e), "success": False}), 500
 
+
+# Run Flask app
 if __name__ == "__main__":
     app.run(debug=True)
