@@ -4,45 +4,44 @@ import os
 
 app = Flask(__name__)
 
-# Load OpenAI API Key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-client = openai.OpenAI(api_key=OPENAI_API_KEY)  # Use new OpenAI client
+# Ensure OpenAI API key is loaded
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
-        # Debugging: Show incoming request
-        print("Received request headers:", request.headers)
-        print("Received request body:", request.data.decode("utf-8"))
+        # Check Content-Type Header
+        if request.content_type != "application/json":
+            return jsonify({"error": "Unsupported Media Type: Use 'application/json'"}), 415
 
-        # Ensure request is JSON
-        if not request.is_json:
-            return jsonify({"error": "415 Unsupported Media Type: Request must be JSON"}), 415
-
+        # Parse JSON Body
         data = request.get_json()
+        if not data:
+            return jsonify({"error": "400 Bad Request: No JSON payload received"}), 400
+        
+        # Extract Fields
+        prompt = data.get("prompt")
+        first_name = data.get("firstName")
+        last_name = data.get("lastName")
+        email = data.get("email")
+        title = data.get("title")
+        company_name = data.get("companyName")
 
-        # Debugging: Log parsed JSON data
-        print("Parsed JSON data:", data)
+        if not prompt:
+            return jsonify({"error": "Missing 'prompt' field"}), 400
 
-        # Check if 'prompt' exists
-        if "prompt" not in data:
-            return jsonify({"error": "Missing prompt"}), 400
-
-        # ✅ Use the new OpenAI client for v1.0+
-        response = client.chat.completions.create(
+        # Call OpenAI API
+        response = openai.ChatCompletion.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": data["prompt"]}
-            ],
-            max_tokens=100
+            messages=[{"role": "system", "content": "You are a helpful assistant."},
+                      {"role": "user", "content": prompt}]
         )
 
-        return jsonify({"response": response.choices[0].message.content.strip()})
+        generated_response = response["choices"][0]["message"]["content"]
+
+        return jsonify({"response": generated_response}), 200
 
     except Exception as e:
-        print("Error occurred:", str(e))  # Debugging: Log error
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
