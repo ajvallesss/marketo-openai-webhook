@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 import openai
 import os
+import json
 
 app = Flask(__name__)
 
@@ -23,6 +24,14 @@ def marketo_webhook():
 
         # Debugging: Log parsed JSON data
         print("Parsed JSON data:", data)
+
+        # Fix extra double quotes from Marketo
+        for key, value in data.items():
+            if isinstance(value, str):
+                data[key] = value.strip('"')
+
+        # Debugging: Print cleaned data
+        print("Cleaned JSON data:", data)
 
         # Check if 'prompt' exists
         if "prompt" not in data:
