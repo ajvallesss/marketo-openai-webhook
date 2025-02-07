@@ -27,14 +27,15 @@ def marketo_webhook():
         if "prompt" not in data:
             return jsonify({"error": "Missing prompt"}), 400
 
-        # Generate OpenAI response
-        response = client.completions.create(
-            model="gpt-4",
-            prompt=data["prompt"],
+        # Use chat model API
+        response = client.chat.completions.create(
+            model="gpt-4",  # Ensure you're using a chat-based model
+            messages=[{"role": "system", "content": "You are a helpful assistant."},
+                      {"role": "user", "content": data["prompt"]}],
             max_tokens=100
         )
 
-        return jsonify({"response": response.choices[0].text.strip()})
+        return jsonify({"response": response.choices[0].message.content.strip()})
 
     except Exception as e:
         print("Error occurred:", str(e))  # Debugging: Log error
