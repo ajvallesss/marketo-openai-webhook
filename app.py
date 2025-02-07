@@ -1,30 +1,39 @@
 import os
+from flask import Flask, request, jsonify
 import openai
 
-# Make sure the API key is retrieved from environment variables
-client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# Load OpenAI API key from environment variable
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 if not OPENAI_API_KEY:
-    raise ValueError("Error: OPENAI_API_KEY is missing. Check your Heroku config vars.")
+    raise ValueError("Missing OpenAI API Key. Set the 'OPENAI_API_KEY' environment variable.")
 
-client = openai.OpenAI(api_key=OPENAI_API_KEY)  # Ensure no 'proxies=' argument
+# Initialize OpenAI client
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
+
+app = Flask(__name__)
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Marketo OpenAI Webhook is running!", 200
+    return jsonify({"message": "Marketo OpenAI Webhook is running!"})
 
 @app.route("/marketo-webhook", methods=["POST"])
 def marketo_webhook():
     try:
         data = request.json
-        prompt = data.get("prompt", "Tell me something interesting about AI.")
-        
+        prompt = data.get("prompt", "")
+
+        if not prompt:
+            return jsonify({"error": "Missing prompt"}), 400
+
         response = client.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            model="gpt-4",
+            prompt=prompt,
+            max_tokens=100
         )
-        
-        return jsonify({"response": response.choices[0].message["content"]})
+
+        return jsonify(response)
+    
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
